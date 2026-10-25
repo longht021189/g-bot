@@ -1,0 +1,18 @@
+name: checkout
+description: >-
+  g-bot's stand-in for actions/checkout (bin gha-checkout). Checks out one
+  branch, tag or commit; its post step always removes the SSH key and the
+  checkout. Takes no inputs: set these in the step's env.
+  CHECKOUT_REPOSITORY (required) the git URL, e.g.
+  https://github.com/owner/repo.git or git@github.com:owner/repo.git.
+  CHECKOUT_REF a branch, a tag, or a full commit hash (default the remote's
+  default branch). CHECKOUT_PATH where to check it out, relative to
+  $GITHUB_WORKSPACE (default the repository's name; must not exist or be
+  empty). CHECKOUT_SSH_KEY base64 of a 32-byte Ed25519 private key (seed),
+  to fetch with over SSH. CHECKOUT_DEPTH how many commits to fetch, 0 for the
+  full history (default 1). Sets no outputs and logs nothing (only an error,
+  if one stops it), since the repository may be a secret.
+runs:
+  using: node24
+  main: main.js
+  post: post.js

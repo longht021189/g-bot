@@ -1,15 +1,5 @@
 name: build-chaos
-description: >-
-  Builds chaos (cmd/chaos of a checkout of the chaos repository) for this
-  runner's platform -- static, stripped, without local paths -- and encrypts
-  it right away, so only the encrypted file ever leaves the runner (a public
-  repository's artifacts can be downloaded by anyone signed in to GitHub): a
-  tar.gz, encrypted with gpg (AES-256, with gpg's own integrity check). Its
-  post step removes everything it wrote. Needs Go on PATH (setup-go) and gpg
-  (on GitHub's Ubuntu runners already). Takes no inputs: set these in the
-  step's env. BUILD_CHAOS_SOURCE (required) the chaos checkout, relative to
-  $GITHUB_WORKSPACE. BUILD_CHAOS_PASSPHRASE (required) the passphrase to
-  encrypt with, from a secret. To decrypt: gpg -d <file> | tar -xz
+description: "Builds chaos and encrypts it with gpg. Settings come from the step's env; see docs/actions.md."
 outputs:
   path:
     description: The encrypted file, chaos-<os>-<arch>.tar.gz.gpg.

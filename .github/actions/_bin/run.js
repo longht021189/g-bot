@@ -1,11 +1,3 @@
-// Runs one of g-bot's gha-* binaries (bin/<os>-<arch>/<binary>, built from
-// g-bot's src/bin/) as an action's `main` or `post` run. This wrapper only
-// exists because GitHub runs a post step for JavaScript (and Docker)
-// actions alone, never for composite ones. Settings reach the binary as the
-// step's own env (CHECKOUT_*, SETUP_GO_*, ...: the actions declare no
-// inputs); outputs, PATH and env go through $GITHUB_OUTPUT/$GITHUB_PATH/
-// $GITHUB_ENV, and main's state through files in $RUNNER_TEMP, all of which
-// the binary handles itself.
 const { spawnSync } = require('child_process');
 const path = require('path');
 

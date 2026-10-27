@@ -1,5 +1,3 @@
-// build-chaos's main run: go build, tar, gpg, and the plaintext gone again
-// before the step ends. See action.yml.
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -42,12 +40,9 @@ run('go', ['build', '-trimpath', '-ldflags=-s -w', '-o', binary, './cmd/chaos'],
   env: { ...process.env, CGO_ENABLED: '0', GOFLAGS: '-buildvcs=false' },
 });
 
-// tar keeps the executable bit an artifact's zip would drop.
 const tarball = path.join(workDir, `${name}.tar.gz`);
 run('tar', ['-czf', tarball, '-C', binDir, 'chaos']);
 
-// The passphrase goes in on stdin (--passphrase-fd 0), never on the
-// command line; the data comes from the file argument.
 const encrypted = path.join(workDir, `${name}.tar.gz.gpg`);
 run('gpg', [
   '--batch', '--yes', '--no-symkey-cache', '--pinentry-mode', 'loopback', '--passphrase-fd', '0',
@@ -55,7 +50,6 @@ run('gpg', [
   '-o', encrypted, tarball,
 ], { input: passphrase, stdio: ['pipe', 'inherit', 'inherit'], env: { ...process.env, GNUPGHOME: gnupgHome } });
 
-// Only the encrypted file stays, for the upload step.
 fs.rmSync(binDir, { recursive: true, force: true });
 fs.rmSync(tarball, { force: true });
 fs.rmSync(gnupgHome, { recursive: true, force: true });

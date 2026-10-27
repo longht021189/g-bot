@@ -1,9 +1,5 @@
 name: setup-pulumi
-description: >-
-  g-bot's stand-in for pulumi/actions' CLI install (bin gha-setup-pulumi).
-  Installs the Pulumi CLI with its own PULUMI_HOME; its post step always removes
-  all of it. Takes no inputs: set these in the step's env. SETUP_PULUMI_VERSION
-  latest, or an exact version like 3.272.0 (default latest).
+description: "g-bot's stand-in for pulumi/actions' CLI install (bin gha-setup-pulumi). Settings come from the step's env; see docs/actions.md."
 outputs:
   pulumi-version:
     description: The installed version, e.g. 3.272.0.

@@ -1,5 +1,3 @@
-// The one directory build-chaos writes to, like the gha-* actions':
-// <$RUNNER_TEMP, else the system temp dir>/g-bot-actions/build-chaos.
 const os = require('os');
 const path = require('path');
 

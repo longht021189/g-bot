@@ -1,10 +1,5 @@
 name: setup-go
-description: >-
-  g-bot's stand-in for actions/setup-go (bin gha-setup-go). Installs Go from
-  go.dev with its own GOPATH, GOCACHE and GOMODCACHE; its post step always
-  removes all of it. Takes no inputs: set these in the step's env. SETUP_GO_VERSION
-  stable, a minor version like 1.27 (its newest patch), or an exact one like
-  1.27.1 (default stable).
+description: "g-bot's stand-in for actions/setup-go (bin gha-setup-go). Settings come from the step's env; see docs/actions.md."
 outputs:
   go-version:
     description: The installed version, e.g. 1.27.3.

@@ -1,8 +1,3 @@
-# Builds chaos (the infrastructure binary, from the repository the `chaos`
-# environment's CHECKOUT_REPOSITORY secret names) for linux/arm64, natively
-# on an arm64 runner, and uploads it, encrypted (see the build-chaos action),
-# as the run's artifact `chaos-linux-arm64`: chaos-linux-arm64.tar.gz.gpg,
-# for `gpg -d chaos-linux-arm64.tar.gz.gpg | tar -xz`. Run by hand.
 name: Build Chaos
 
 on:

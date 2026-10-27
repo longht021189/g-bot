@@ -6,14 +6,11 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: chaos-bin
+
 jobs:
   build:
-    strategy:
-      matrix:
-        target:
-          - { goos: linux, goarch: arm64 }
-          - { goos: darwin, goarch: arm64 }
-    name: build (${{ matrix.target.goos }}-${{ matrix.target.goarch }})
     runs-on: ubuntu-26.04-arm
     environment: chaos
     steps:
@@ -29,19 +26,8 @@ jobs:
         env:
           SETUP_GO_VERSION: stable
 
-      - name: Build and encrypt
-        id: build
+      - name: Build and push
         uses: longht021189/g-bot/.github/actions/build-chaos@main
         env:
           BUILD_CHAOS_SOURCE: source
-          BUILD_CHAOS_PASSPHRASE: ${{ secrets.CHAOS_ARTIFACT_PASSPHRASE }}
-          BUILD_CHAOS_GOOS: ${{ matrix.target.goos }}
-          BUILD_CHAOS_GOARCH: ${{ matrix.target.goarch }}
-
-      - name: Upload
-        uses: actions/upload-artifact@v7
-        with:
-          name: chaos-${{ matrix.target.goos }}-${{ matrix.target.goarch }}
-          path: ${{ steps.build.outputs.path }}
-          if-no-files-found: error
-          retention-days: 1
+          BUILD_CHAOS_TARGETS: linux/arm64 darwin/arm64

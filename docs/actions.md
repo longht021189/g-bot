@@ -31,18 +31,14 @@ Their settings, outputs and `post` steps are documented with the binaries, in g-
 
 ## build-chaos
 
-Builds `cmd/chaos` of a chaos checkout -- for the runner's platform, or any other Go targets: chaos is pure Go (`CGO_ENABLED=0`), so it cross-compiles -- and encrypts it right away, so only the encrypted file ever leaves the runner: a public repository's artifacts can be downloaded by anyone signed in to GitHub. Needs Go on `PATH` (`setup-go`) and `gpg` (already on GitHub's Ubuntu runners).
+Builds `cmd/chaos` of a chaos checkout for each target -- chaos is pure Go (`CGO_ENABLED=0`), so one runner cross-compiles them all -- and pushes the binaries to the chaos repository itself, on a branch named after the commit they were built from: `bin/<first 12 characters of the commit>`. The chaos repository is private, so the binaries are as private as its code, and nothing goes to the run's artifacts. Needs Go on `PATH` (`setup-go`), and the checkout made with a key that may push (`checkout` keeps it set up for git until its `post`).
 
 | Env | Required | |
 |---|---|---|
 | `BUILD_CHAOS_SOURCE` | yes | The chaos checkout, relative to `$GITHUB_WORKSPACE`. |
-| `BUILD_CHAOS_PASSPHRASE` | yes | The passphrase to encrypt with, from a secret: long and random, e.g. `openssl rand -base64 32`. |
-| `BUILD_CHAOS_GOOS` | no | The target OS, as Go names it (`linux`, `darwin`, ...); default the runner's. |
-| `BUILD_CHAOS_GOARCH` | no | The target architecture (`arm64`, `amd64`, ...); default the runner's. |
+| `BUILD_CHAOS_TARGETS` | no | The targets, `<goos>/<goarch>` separated by spaces; default `linux/arm64 darwin/arm64`. |
 
-Output `path`: the encrypted file, `chaos-<os>-<arch>.tar.gz.gpg`.
+Outputs: `branch`, the branch pushed; `commit`, the commit on it.
 
-- `main`: `go build` (`CGO_ENABLED=0`, `-trimpath`, `-ldflags=-s -w`), `tar -cz` (an artifact's zip would drop the executable bit), then `gpg --symmetric` (AES-256, SHA-512 S2K at the maximum count, with gpg's integrity check, so a tampered file or a wrong passphrase fails loudly). The passphrase goes in on stdin, never on the command line. The binary and the tarball are deleted before the step ends.
-- `post`: removes the work directory, the encrypted file included.
-
-To decrypt: `gpg -d chaos-<os>-<arch>.tar.gz.gpg | tar -xz`.
+- `main`: `go build` (`CGO_ENABLED=0`, `-trimpath`, `-ldflags=-s -w`) each target into `chaos-<goos>-<goarch>`; commits them, executable, as one commit with no parent (`chaos <source commit>`), using a separate index and work tree, so the checkout itself is left as it was; then one atomic push that creates (or, rebuilding the same commit, replaces) `bin/<commit>` and deletes every other `bin/*` branch. There is only ever one `bin/*` branch, holding one commit, so the binaries never pile up in the repository's history.
+- `post`: removes the work directory.

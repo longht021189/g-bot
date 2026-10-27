@@ -1,8 +1,10 @@
 name: build-chaos
-description: "Builds chaos, for any platform Go targets, and encrypts it with gpg. Settings come from the step's env; see docs/actions.md."
+description: "Builds chaos for every target and pushes the binaries to a bin/<commit> branch of the chaos repository. Settings come from the step's env; see docs/actions.md."
 outputs:
-  path:
-    description: The encrypted file, chaos-<os>-<arch>.tar.gz.gpg.
+  branch:
+    description: The branch pushed, bin/<first 12 characters of the source commit>.
+  commit:
+    description: The commit on that branch.
 runs:
   using: node24
   main: main.js

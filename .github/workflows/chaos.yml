@@ -1,0 +1,44 @@
+# Builds chaos (the infrastructure binary, from the repository the `chaos`
+# environment's CHECKOUT_REPOSITORY secret names) for linux/arm64, natively
+# on an arm64 runner, and uploads it, encrypted (see the build-chaos action),
+# as the run's artifact `chaos-linux-arm64`: chaos-linux-arm64.tar.gz.gpg,
+# for `gpg -d chaos-linux-arm64.tar.gz.gpg | tar -xz`. Run by hand.
+name: Build Chaos
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-26.04-arm
+    environment: chaos
+    steps:
+      - name: Checkout source
+        uses: longht021189/g-bot/.github/actions/checkout@main
+        env:
+          CHECKOUT_REPOSITORY: ${{ secrets.CHECKOUT_REPOSITORY }}
+          CHECKOUT_PATH: source
+          CHECKOUT_SSH_KEY: ${{ secrets.CHECKOUT_SSH_KEY }}
+
+      - name: Set up Go
+        uses: longht021189/g-bot/.github/actions/setup-go@main
+        env:
+          SETUP_GO_VERSION: stable
+
+      - name: Build and encrypt
+        id: build
+        uses: longht021189/g-bot/.github/actions/build-chaos@main
+        env:
+          BUILD_CHAOS_SOURCE: source
+          BUILD_CHAOS_PASSPHRASE: ${{ secrets.CHAOS_ARTIFACT_PASSPHRASE }}
+
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: chaos-linux-arm64
+          path: ${{ steps.build.outputs.path }}
+          if-no-files-found: error
+          retention-days: 1

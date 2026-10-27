@@ -8,8 +8,8 @@ Builds chaos and pushes it to the chaos repository's `bin/<commit>` branch (see 
 
 | File | For |
 |---|---|
-| `chaos-linux-arm64` | the VM and the runners |
-| `chaos-darwin-arm64` | an Apple Silicon Mac |
+| `chaos-linux-arm64.tar.gz` | the VM and the runners |
+| `chaos-darwin-arm64.tar.gz` | an Apple Silicon Mac |
 
 1. `checkout` the chaos repository into `source`.
 2. `setup-go` (`stable`).
@@ -30,7 +30,7 @@ To get the binary:
 repo=git@github.com:longht021189/chaos.git
 branch=$(git ls-remote --heads "$repo" 'bin/*' | cut -f2)
 git clone -q --depth 1 --branch "${branch#refs/heads/}" "$repo" chaos-bin
-cp chaos-bin/chaos-darwin-arm64 ./chaos && rm -rf chaos-bin
+tar -xzf chaos-bin/chaos-darwin-arm64.tar.gz && rm -rf chaos-bin
 ./chaos --help
 ```
 

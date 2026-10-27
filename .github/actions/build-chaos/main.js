@@ -53,16 +53,26 @@ const targets = (process.env.BUILD_CHAOS_TARGETS || 'linux/arm64 darwin/arm64')
   });
 if (targets.length === 0) fail('BUILD_CHAOS_TARGETS names no target');
 
+const maxFileSize = 100 * 1024 * 1024;
+
 fs.rmSync(workDir, { recursive: true, force: true });
+const binDir = path.join(workDir, 'bin');
 const filesDir = path.join(workDir, 'files');
 fs.mkdirSync(filesDir, { recursive: true });
 
 for (const { goos, goarch } of targets) {
-  run('go', ['build', '-trimpath', '-ldflags=-s -w', '-o', path.join(filesDir, `chaos-${goos}-${goarch}`), './cmd/chaos'], {
+  fs.rmSync(binDir, { recursive: true, force: true });
+  fs.mkdirSync(binDir, { recursive: true });
+  run('go', ['build', '-trimpath', '-ldflags=-s -w', '-o', path.join(binDir, 'chaos'), './cmd/chaos'], {
     cwd: sourceDir,
     env: { ...process.env, CGO_ENABLED: '0', GOFLAGS: '-buildvcs=false', GOOS: goos, GOARCH: goarch },
   });
+  const tarball = path.join(filesDir, `chaos-${goos}-${goarch}.tar.gz`);
+  run('tar', ['-czf', tarball, '-C', binDir, 'chaos'], { env: { ...process.env, GZIP: '-9' } });
+  const size = fs.statSync(tarball).size;
+  if (size >= maxFileSize) fail(`${path.basename(tarball)} is ${(size / 1024 / 1024).toFixed(2)} MiB, over GitHub's 100 MiB file limit`);
 }
+fs.rmSync(binDir, { recursive: true, force: true });
 
 const sourceCommit = git(['-C', sourceDir, 'rev-parse', 'HEAD']);
 const branch = `bin/${sourceCommit.slice(0, 12)}`;
@@ -94,7 +104,7 @@ git(['push', '--quiet', '--atomic', 'origin', `+${commit}:refs/heads/${branch}`,
 
 fs.rmSync(workDir, { recursive: true, force: true });
 
-console.log(`Pushed ${targets.map(({ goos, goarch }) => `chaos-${goos}-${goarch}`).join(', ')} to ${branch}`);
+console.log(`Pushed ${targets.map(({ goos, goarch }) => `chaos-${goos}-${goarch}.tar.gz`).join(', ')} to ${branch}`);
 if (stale.length > 0) console.log(`Deleted ${stale.map((ref) => ref.slice('refs/heads/'.length)).join(', ')}`);
 output('branch', branch);
 output('commit', commit);

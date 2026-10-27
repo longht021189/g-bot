@@ -24,8 +24,8 @@ if (!source) fail('BUILD_CHAOS_SOURCE is required');
 if (!passphrase) fail('BUILD_CHAOS_PASSPHRASE is required');
 
 const sourceDir = path.resolve(process.env.GITHUB_WORKSPACE || process.cwd(), source);
-const goos = { linux: 'linux', darwin: 'darwin' }[process.platform] || process.platform;
-const goarch = { arm64: 'arm64', x64: 'amd64' }[process.arch] || process.arch;
+const goos = process.env.BUILD_CHAOS_GOOS || { linux: 'linux', darwin: 'darwin' }[process.platform] || process.platform;
+const goarch = process.env.BUILD_CHAOS_GOARCH || { arm64: 'arm64', x64: 'amd64' }[process.arch] || process.arch;
 const name = `chaos-${goos}-${goarch}`;
 
 fs.rmSync(workDir, { recursive: true, force: true });
@@ -37,7 +37,7 @@ fs.mkdirSync(gnupgHome, { recursive: true, mode: 0o700 });
 const binary = path.join(binDir, 'chaos');
 run('go', ['build', '-trimpath', '-ldflags=-s -w', '-o', binary, './cmd/chaos'], {
   cwd: sourceDir,
-  env: { ...process.env, CGO_ENABLED: '0', GOFLAGS: '-buildvcs=false' },
+  env: { ...process.env, CGO_ENABLED: '0', GOFLAGS: '-buildvcs=false', GOOS: goos, GOARCH: goarch },
 });
 
 const tarball = path.join(workDir, `${name}.tar.gz`);

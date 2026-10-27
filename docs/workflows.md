@@ -4,11 +4,16 @@ Both are run by hand (`workflow_dispatch`), on `ubuntu-26.04-arm`, each in its o
 
 ## Build Chaos (`chaos.yml`)
 
-Builds chaos for linux/arm64 and uploads it, encrypted, as the run's artifact `chaos-linux-arm64`, kept for a day.
+Builds chaos and uploads it, encrypted, as one artifact per target, each kept for a day. A matrix builds both on the same arm64 runner, cross-compiling:
+
+| Target | For | Artifact |
+|---|---|---|
+| `linux/arm64` | the VM and the runners | `chaos-linux-arm64` |
+| `darwin/arm64` | an Apple Silicon Mac | `chaos-darwin-arm64` |
 
 1. `checkout` the chaos repository into `source`.
 2. `setup-go` (`stable`).
-3. `build-chaos`: build, tar, gpg.
+3. `build-chaos` for the matrix's target: build, tar, gpg.
 4. `actions/upload-artifact@v7` of the encrypted file.
 
 Environment `chaos`:
@@ -22,9 +27,12 @@ Environment `chaos`:
 To use the artifact:
 
 ```sh
-unzip chaos-linux-arm64.zip                     # GitHub zips every artifact
-gpg -d chaos-linux-arm64.tar.gz.gpg | tar -xz   # gpg: brew install gnupg
+unzip chaos-darwin-arm64.zip                     # GitHub zips every artifact
+gpg -d chaos-darwin-arm64.tar.gz.gpg | tar -xz   # gpg: brew install gnupg
+./chaos --help
 ```
+
+Go signs a darwin/arm64 binary (ad hoc) as it links it, even cross-compiling, which is all an Apple Silicon Mac requires to run it. Unpacked from the terminal as above, it carries no quarantine flag; if one ever does (`xattr -l chaos` shows `com.apple.quarantine`), `xattr -d com.apple.quarantine chaos` clears it.
 
 ## Build and Deploy MCP Service (`mcp.yml`)
 

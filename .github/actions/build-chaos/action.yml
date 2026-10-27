@@ -1,5 +1,5 @@
 name: build-chaos
-description: "Builds chaos and encrypts it with gpg. Settings come from the step's env; see docs/actions.md."
+description: "Builds chaos, for any platform Go targets, and encrypts it with gpg. Settings come from the step's env; see docs/actions.md."
 outputs:
   path:
     description: The encrypted file, chaos-<os>-<arch>.tar.gz.gpg.

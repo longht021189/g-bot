@@ -31,12 +31,14 @@ Their settings, outputs and `post` steps are documented with the binaries, in g-
 
 ## build-chaos
 
-Builds `cmd/chaos` of a chaos checkout for the runner's platform and encrypts it right away, so only the encrypted file ever leaves the runner: a public repository's artifacts can be downloaded by anyone signed in to GitHub. Needs Go on `PATH` (`setup-go`) and `gpg` (already on GitHub's Ubuntu runners).
+Builds `cmd/chaos` of a chaos checkout -- for the runner's platform, or any other Go targets: chaos is pure Go (`CGO_ENABLED=0`), so it cross-compiles -- and encrypts it right away, so only the encrypted file ever leaves the runner: a public repository's artifacts can be downloaded by anyone signed in to GitHub. Needs Go on `PATH` (`setup-go`) and `gpg` (already on GitHub's Ubuntu runners).
 
 | Env | Required | |
 |---|---|---|
 | `BUILD_CHAOS_SOURCE` | yes | The chaos checkout, relative to `$GITHUB_WORKSPACE`. |
 | `BUILD_CHAOS_PASSPHRASE` | yes | The passphrase to encrypt with, from a secret: long and random, e.g. `openssl rand -base64 32`. |
+| `BUILD_CHAOS_GOOS` | no | The target OS, as Go names it (`linux`, `darwin`, ...); default the runner's. |
+| `BUILD_CHAOS_GOARCH` | no | The target architecture (`arm64`, `amd64`, ...); default the runner's. |
 
 Output `path`: the encrypted file, `chaos-<os>-<arch>.tar.gz.gpg`.
 

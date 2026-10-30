@@ -11,7 +11,11 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-26.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.runner }}
     environment: chaos
     steps:
       - name: Checkout source
@@ -30,4 +34,3 @@ jobs:
         uses: longht021189/g-bot/.github/actions/build-chaos@main
         env:
           BUILD_CHAOS_SOURCE: source
-          BUILD_CHAOS_TARGETS: linux/arm64 darwin/arm64

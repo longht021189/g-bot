@@ -1,5 +1,5 @@
 name: build-chaos
-description: "Builds chaos for every target and pushes the binaries to a bin/<commit> branch of the chaos repository. Settings come from the step's env; see docs/actions.md."
+description: "Builds every binary of a chaos checkout for the runner's own platform (scripts/build.sh) and adds them to the chaos repository's bin/<commit> branch. Settings come from the step's env; see docs/actions.md."
 outputs:
   branch:
     description: The branch pushed, bin/<first 12 characters of the source commit>.

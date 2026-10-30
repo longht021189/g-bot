@@ -15,7 +15,7 @@ Everything an action sets up lives under `$RUNNER_TEMP/g-bot-actions/<name>/`, a
 
 ## checkout, setup-go, setup-pulumi
 
-Thin wrappers around g-bot's `gha-*` binaries, prebuilt in `bin/<os>-<arch>/` (only `linux-arm64` so far, so the jobs run on `ubuntu-*-arm`). `main.js` and `post.js` only run `bin/<os>-<arch>/<binary> main|post` through `_bin/run.js`; the binary reads its settings from the env, and writes outputs, `PATH` and env through `$GITHUB_OUTPUT`, `$GITHUB_PATH` and `$GITHUB_ENV` itself.
+Thin wrappers around g-bot's `gha-*` binaries, prebuilt in `bin/<os>-<arch>/` (`linux-arm64` and `darwin-arm64`; `_bin/run.js` fails on any other runner). `main.js` and `post.js` only run `bin/<os>-<arch>/<binary> main|post` through `_bin/run.js`; the binary reads its settings from the env, and writes outputs, `PATH` and env through `$GITHUB_OUTPUT`, `$GITHUB_PATH` and `$GITHUB_ENV` itself.
 
 | Action | Stands in for | Binary |
 |---|---|---|
@@ -31,14 +31,19 @@ Their settings, outputs and `post` steps are documented with the binaries, in th
 
 ## build-chaos
 
-Builds `cmd/chaos` of a chaos checkout for each target -- chaos is pure Go (`CGO_ENABLED=0`), so one runner cross-compiles them all -- and pushes the binaries to the chaos repository itself, on a branch named after the commit they were built from: `bin/<first 12 characters of the commit>`. The chaos repository is private, so the binaries are as private as its code, and nothing goes to the run's artifacts. Needs Go on `PATH` (`setup-go`), and the checkout made with a key that may push (`checkout` keeps it set up for git until its `post`).
+Builds every binary of a chaos checkout for the runner's own platform -- `linux-arm64` on `ubuntu-*-arm`, `darwin-arm64` on an arm64 macOS runner; nothing is cross-compiled -- with the checkout's own `scripts/build.sh` (steps `go pack rust`, natively: see chaos's `docs/running.md`), and adds them to the chaos repository itself, on a branch named after the commit they were built from: `bin/<first 12 characters of the commit>`. The chaos repository is private, so the binaries are as private as its code, and nothing goes to the run's artifacts. Needs Go on `PATH` (`setup-go`), Rust, `make`, a C compiler, CMake, Ninja and clang (GitHub's runners have them), and the checkout made with a key that may push (`checkout` keeps it set up for git until its `post`).
 
 | Env | Required | |
 |---|---|---|
 | `BUILD_CHAOS_SOURCE` | yes | The chaos checkout, relative to `$GITHUB_WORKSPACE`. |
-| `BUILD_CHAOS_TARGETS` | no | The targets, `<goos>/<goarch>` separated by spaces; default `linux/arm64 darwin/arm64`. |
 
 Outputs: `branch`, the branch pushed; `commit`, the commit on it.
 
-- `main`: `go build` (`CGO_ENABLED=0`, `-trimpath`, `-ldflags=-s -w`) each target, and packs each binary as `chaos-<goos>-<goarch>.tar.gz` (`gzip -9`, keeping it executable): a stripped `chaos` is over GitHub's 100 MiB file limit, and the step fails before pushing if a tarball still is; commits them as one commit with no parent (`chaos <source commit>`), using a separate index and work tree, so the checkout itself is left as it was; then one atomic push that creates (or, rebuilding the same commit, replaces) `bin/<commit>` and deletes every other `bin/*` branch. There is only ever one `bin/*` branch, holding one commit, so the binaries never pile up in the repository's history.
-- `post`: removes the work directory.
+- `main`:
+  - Clones r-share and c-share (public, `--depth 1`, their default branch) next to the checkout, and writes the checkout's `.cargo/config.toml` patching r-share to `../r-share`, as on a development machine: chaos's `Cargo.lock` is locked against that patch. Without `VCPKG_ROOT`, clones and bootstraps vcpkg into its work directory.
+  - Runs `scripts/build.sh go pack rust` into `<target>/` of its work directory, laid out as an install prefix: `bin/` (`chaos`, the `gha-*` binaries, `mcp-gateway-service`, `mcp-gateway-stdio`, `collect_lambda_logs`), `libexec/chaos/` (`chaos-<name>.zst`, `zstd`) and `chaos.sha256`.
+  - Fails before pushing if a file is over GitHub's 100 MiB file limit (the Go binaries are compressed, so none is so far).
+  - Commits, as one commit with no parent (`chaos <source commit>`), its `<target>/` and whatever else `bin/<commit>` already holds (the other target, pushed by the other job of the same run), using a separate index and work tree, so the checkout itself is left as it was; then one atomic push, leased on what it read (`--force-with-lease`), that creates or replaces `bin/<commit>` and deletes every other `bin/*` branch. If the other job pushed in between, it starts over, up to five times. There is only ever one `bin/*` branch, holding one commit, so the binaries never pile up in the repository's history.
+- `post`: removes the r-share and c-share clones and the work directory.
+
+The `gha-*` binaries in this repository's `bin/` are not updated by it: copy them from the `bin/*` branch by hand (`<target>/bin/gha-*` into `bin/<target>/`).

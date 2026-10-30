@@ -1,7 +1,7 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-const PLATFORMS = { linux: 'linux' };
+const PLATFORMS = { linux: 'linux', darwin: 'darwin' };
 const ARCHES = { arm64: 'arm64' };
 
 module.exports = function run(binary, phase) {

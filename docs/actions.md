@@ -23,7 +23,7 @@ Thin wrappers around g-bot's `gha-*` binaries, prebuilt in `bin/<os>-<arch>/` (o
 | `setup-go` | `actions/setup-go` | `gha-setup-go` |
 | `setup-pulumi` | `pulumi/actions` (installing the CLI only) | `gha-setup-pulumi` |
 
-Their settings, outputs and `post` steps are documented with the binaries, in g-bot's `docs/` on the `dev` branch:
+Their settings, outputs and `post` steps are documented with the binaries, in the chaos repository's `docs/actions/`:
 
 - `checkout`: `CHECKOUT_REPOSITORY` (required), `CHECKOUT_REF`, `CHECKOUT_PATH`, `CHECKOUT_SSH_KEY` (base64 of a 32-byte Ed25519 seed; make one with `bin/darwin-arm64/gha-ssh-keygen`), `CHECKOUT_DEPTH`. No outputs, and no logs but an error, since the repository may be a secret. `post` removes the key and the checkout.
 - `setup-go`: `SETUP_GO_VERSION` (default `stable`). Outputs `go-version`, `goroot`; sets `GOPATH`, `GOCACHE`, `GOMODCACHE`, `GOTOOLCHAIN=local`. `post` removes the toolchain and every cache.

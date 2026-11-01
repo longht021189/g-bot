@@ -49,6 +49,35 @@ jobs:
           CHECKOUT_PATH: source
           CHECKOUT_SSH_KEY: ${{ secrets.CHECKOUT_SSH_KEY }}
 
+      # Next to the source, where its .cargo/config.toml patch and r-share's
+      # build.rs look for them.
+      - name: Checkout r-share
+        uses: longht021189/g-bot/.github/actions/checkout@main
+        env:
+          CHECKOUT_REPOSITORY: https://github.com/longht021189/r-share.git
+          CHECKOUT_PATH: r-share
+
+      - name: Checkout c-share
+        uses: longht021189/g-bot/.github/actions/checkout@main
+        env:
+          CHECKOUT_REPOSITORY: https://github.com/longht021189/c-share.git
+          CHECKOUT_PATH: c-share
+
+      # c-share's dependencies, prebuilt: vcpkg-share's deps branch, and its
+      # main, whose deps hash deps must have been built from.
+      - name: Checkout vcpkg-share
+        uses: longht021189/g-bot/.github/actions/checkout@main
+        env:
+          CHECKOUT_REPOSITORY: https://github.com/longht021189/vcpkg-share.git
+          CHECKOUT_PATH: vcpkg-share
+
+      - name: Checkout vcpkg-share's deps
+        uses: longht021189/g-bot/.github/actions/checkout@main
+        env:
+          CHECKOUT_REPOSITORY: https://github.com/longht021189/vcpkg-share.git
+          CHECKOUT_REF: deps
+          CHECKOUT_PATH: vcpkg-share-deps
+
       - name: Set up Go
         uses: longht021189/g-bot/.github/actions/setup-go@main
         env:
@@ -58,3 +87,5 @@ jobs:
         uses: longht021189/g-bot/.github/actions/build-chaos@main
         env:
           BUILD_CHAOS_SOURCE: source
+          BUILD_CHAOS_VCPKG_SHARE: vcpkg-share
+          BUILD_CHAOS_DEPS: vcpkg-share-deps

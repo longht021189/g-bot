@@ -5,9 +5,17 @@ const { depsHash, depsHashOf } = require('../build-vcpkg-share/build.js');
 const { build, hostTarget } = require('./build.js');
 const { workDir } = require('./work.js');
 
-const source = process.env.BUILD_CHAOS_SOURCE;
-if (!source) fail('BUILD_CHAOS_SOURCE is required');
-const sourceDir = path.resolve(process.env.GITHUB_WORKSPACE || process.cwd(), source);
+// Checkouts, relative to $GITHUB_WORKSPACE: chaos (with r-share and c-share
+// next to it), vcpkg-share's main and its deps branch.
+const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+function checkout(name) {
+  const value = process.env[name];
+  if (!value) fail(`${name} is required`);
+  return path.resolve(workspace, value);
+}
+const sourceDir = checkout('BUILD_CHAOS_SOURCE');
+const vcpkgShareDir = checkout('BUILD_CHAOS_VCPKG_SHARE');
+const depsDir = checkout('BUILD_CHAOS_DEPS');
 
 let target;
 try {
@@ -16,26 +24,9 @@ try {
   fail(error.message);
 }
 
-const sharedRepositories = {
-  'r-share': 'https://github.com/longht021189/r-share.git',
-  'c-share': 'https://github.com/longht021189/c-share.git',
-};
-const vcpkgShareRepository = 'https://github.com/longht021189/vcpkg-share.git';
-
-fs.rmSync(workDir, { recursive: true, force: true });
-const filesDir = path.join(workDir, 'files');
-fs.mkdirSync(filesDir, { recursive: true });
-const created = [];
-const remember = (dir) => {
-  created.push(dir);
-  fs.writeFileSync(path.join(workDir, 'created.json'), JSON.stringify(created));
-};
-
-for (const [name, url] of Object.entries(sharedRepositories)) {
+for (const name of ['r-share', 'c-share']) {
   const dir = path.join(path.dirname(sourceDir), name);
-  if (fs.existsSync(dir)) fail(`${dir} already exists: ${name} is cloned there, next to the chaos checkout`);
-  remember(dir);
-  git(['clone', '--quiet', '--depth', '1', url, dir]);
+  if (!fs.existsSync(dir)) fail(`no ${name} at ${dir}: check it out next to the chaos checkout`);
 }
 const cargoConfig = path.join(sourceDir, '.cargo', 'config.toml');
 if (!fs.existsSync(cargoConfig)) {
@@ -44,25 +35,21 @@ if (!fs.existsSync(cargoConfig)) {
 }
 
 // c-share's vcpkg dependencies, prebuilt for this platform by vcpkg-share's
-// deps workflow, on its deps branch -- if built from
-// vcpkg-share's main as it is now (the deps hash its commit message names): a
-// change there not built yet fails here, rather than linking older libraries.
-// build() runs its tools with this process's environment, where r-share's
-// build.rs finds VCPKG_SHARE_PREFIX.
-if (!process.env.VCPKG_SHARE_PREFIX) {
-  const rerun = `run vcpkg-share's deps workflow with ${target}`;
-  const vcpkgShare = path.join(workDir, 'vcpkg-share');
-  git(['clone', '--quiet', '--depth', '1', vcpkgShareRepository, vcpkgShare]);
-  const hash = depsHash(vcpkgShare);
-  if (git(['ls-remote', '--heads', vcpkgShareRepository, 'deps']) === '') fail(`vcpkg-share has no deps branch: ${rerun}`);
-  const deps = path.join(workDir, 'deps');
-  git(['clone', '--quiet', '--depth', '1', '--filter=blob:none', '--sparse', '--branch', 'deps', vcpkgShareRepository, deps]);
-  const built = depsHashOf(git(['-C', deps, 'log', '-1', '--format=%B']));
-  if (built !== hash) fail(`vcpkg-share's deps is built from ${built || 'an unknown hash'}, its main is ${hash}: ${rerun}`);
-  git(['-C', deps, 'sparse-checkout', 'set', target]);
-  if (!fs.existsSync(path.join(deps, target, 'lib'))) fail(`vcpkg-share's deps has no ${target}: ${rerun}`);
-  process.env.VCPKG_SHARE_PREFIX = path.join(deps, target);
-}
+// deps workflow, on its deps branch -- if built from vcpkg-share's main as it
+// is now (the deps hash its commit message names): a change there not built
+// yet fails here, rather than linking older libraries. build() runs its tools
+// with this process's environment, where r-share's build.rs finds
+// VCPKG_SHARE_PREFIX.
+const rerun = `run vcpkg-share's deps workflow with ${target}`;
+const hash = depsHash(vcpkgShareDir);
+const built = depsHashOf(git(['-C', depsDir, 'log', '-1', '--format=%B']));
+if (built !== hash) fail(`vcpkg-share's deps is built from ${built || 'an unknown hash'}, its main is ${hash}: ${rerun}`);
+if (!fs.existsSync(path.join(depsDir, target, 'lib'))) fail(`vcpkg-share's deps has no ${target}: ${rerun}`);
+process.env.VCPKG_SHARE_PREFIX = path.join(depsDir, target);
+
+fs.rmSync(workDir, { recursive: true, force: true });
+const filesDir = path.join(workDir, 'files');
+fs.mkdirSync(filesDir, { recursive: true });
 
 async function main() {
   try {

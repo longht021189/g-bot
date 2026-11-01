@@ -161,7 +161,7 @@ async function image(source) {
   console.log('== chaos image');
   const dir = path.join(source, 'dist', 'linux-arm64');
   if (!fs.existsSync(path.join(dir, 'bin', 'chaos'))) {
-    throw new Error(`no ${dir}/bin/chaos: build it on Linux arm64, or fetch it from the bin/* branch`);
+    throw new Error(`no ${dir}/bin/chaos: build it on Linux arm64, or fetch it from the bin branch`);
   }
   const libexec = path.join(dir, 'libexec', 'chaos');
   if (!fs.existsSync(libexec) || !fs.readdirSync(libexec).some((f) => f.startsWith('chaos-'))) {

@@ -71,8 +71,11 @@ async function main() {
     fail(error.message);
   }
 
+  // One branch, bin, whose commit message names the chaos commit built: the
+  // other platform already there is kept only if built from the same one.
+  // (stalePrefix: the bin/<commit> branches this replaced.)
   const sourceCommit = git(['-C', sourceDir, 'rev-parse', 'HEAD']);
-  const branch = `bin/${sourceCommit.slice(0, 12)}`;
+  const branch = 'bin';
   const commit = publish({
     gitDir: git(['-C', sourceDir, 'rev-parse', '--absolute-git-dir']),
     filesDir,
@@ -80,11 +83,12 @@ async function main() {
     target,
     branch,
     stalePrefix: 'bin/',
-    message: `chaos ${sourceCommit}`,
+    keep: (message) => /^chaos ([0-9a-f]{40})$/m.exec(message)?.[1] === sourceCommit,
+    message: `chaos ${sourceCommit}\n`,
   });
   fs.rmSync(filesDir, { recursive: true, force: true });
 
-  output('branch', branch);
+  output('source-commit', sourceCommit);
   output('commit', commit);
 }
 

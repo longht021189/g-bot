@@ -1,0 +1,6 @@
+name: checkout
+description: "g-bot's stand-in for actions/checkout (bin gha-checkout). Settings come from the step's env."
+runs:
+  using: node24
+  main: main.js
+  post: post.js

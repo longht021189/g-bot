@@ -1,0 +1,11 @@
+name: build-chaos
+description: "Builds every binary of a chaos checkout for the runner's own platform (scripts/build.sh) and adds them to the chaos repository's bin/<commit> branch. Settings come from the step's env."
+outputs:
+  branch:
+    description: The branch pushed, bin/<first 12 characters of the source commit>.
+  commit:
+    description: The commit on that branch.
+runs:
+  using: node24
+  main: main.js
+  post: post.js

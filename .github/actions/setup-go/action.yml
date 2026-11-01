@@ -1,0 +1,11 @@
+name: setup-go
+description: "g-bot's stand-in for actions/setup-go (bin gha-setup-go). Settings come from the step's env."
+outputs:
+  go-version:
+    description: The installed version, e.g. 1.27.3.
+  goroot:
+    description: The installed toolchain's GOROOT.
+runs:
+  using: node24
+  main: main.js
+  post: post.js

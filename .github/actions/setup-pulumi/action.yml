@@ -1,0 +1,9 @@
+name: setup-pulumi
+description: "g-bot's stand-in for pulumi/actions' CLI install (bin gha-setup-pulumi). Settings come from the step's env."
+outputs:
+  pulumi-version:
+    description: The installed version, e.g. 3.272.0.
+runs:
+  using: node24
+  main: main.js
+  post: post.js

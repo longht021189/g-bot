@@ -1,0 +1,36 @@
+name: Build Chaos
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chaos-bin
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.runner }}
+    environment: chaos
+    steps:
+      - name: Checkout source
+        uses: longht021189/g-bot/.github/actions/checkout@main
+        env:
+          CHECKOUT_REPOSITORY: ${{ secrets.CHECKOUT_REPOSITORY }}
+          CHECKOUT_PATH: source
+          CHECKOUT_SSH_KEY: ${{ secrets.CHECKOUT_SSH_KEY }}
+
+      - name: Set up Go
+        uses: longht021189/g-bot/.github/actions/setup-go@main
+        env:
+          SETUP_GO_VERSION: stable
+
+      - name: Build and push
+        uses: longht021189/g-bot/.github/actions/build-chaos@main
+        env:
+          BUILD_CHAOS_SOURCE: source

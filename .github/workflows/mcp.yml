@@ -1,0 +1,42 @@
+name: Build and Deploy MCP Service
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mcp-service:
+    runs-on: ubuntu-26.04-arm
+    environment: mcp
+    steps:
+      - name: Checkout source
+        id: checkout
+        uses: longht021189/g-bot/.github/actions/checkout@main
+        env:
+          CHECKOUT_REPOSITORY: ${{ secrets.CHECKOUT_REPOSITORY }}
+          CHECKOUT_PATH: source
+          CHECKOUT_SSH_KEY: ${{ secrets.CHECKOUT_SSH_KEY }}
+
+      - name: Set up Go
+        id: go
+        uses: longht021189/g-bot/.github/actions/setup-go@main
+        env:
+          SETUP_GO_VERSION: stable
+
+      - name: Set up Pulumi
+        id: pulumi
+        uses: longht021189/g-bot/.github/actions/setup-pulumi@main
+        env:
+          SETUP_PULUMI_VERSION: latest
+
+      - name: Show what the actions set up
+        env:
+          GO_VERSION: ${{ steps.go.outputs.go-version }}
+          PULUMI_VERSION: ${{ steps.pulumi.outputs.pulumi-version }}
+        run: |
+          ls source
+          echo "Go $GO_VERSION, Pulumi $PULUMI_VERSION"
+          go version
+          go env GOPATH GOCACHE GOMODCACHE GOTOOLCHAIN
+          pulumi version
+          echo "PULUMI_HOME=$PULUMI_HOME"
+

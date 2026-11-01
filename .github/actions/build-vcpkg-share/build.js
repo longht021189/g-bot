@@ -3,6 +3,8 @@
 // platform: <vcpkg-share>/dist/<platform>/{include,lib,share}, static
 // libraries only, for c-share's CMake (CMAKE_PREFIX_PATH) and r-share's
 // build.rs (VCPKG_SHARE_PREFIX) to use instead of running vcpkg themselves.
+// g-bot's vcpkg-share workflow pushes them to vcpkg-share's deps branch, whose
+// commit message names the deps hash they were built from (depsMessage).
 //
 // Platforms are named as chaos names its builds, not by vcpkg triplet:
 // darwin-arm64 and linux-* build on that very OS and architecture (never
@@ -60,8 +62,8 @@ function listFiles(dir, rel = '') {
 }
 
 // What a prefix is built from: VCPKG_COMMIT, vcpkg.json, ports/ and
-// triplets/. Its SHA-256, hex; the first 12 characters name the deps/<hash>
-// branch the prefixes are pushed to, the same for every platform.
+// triplets/. Its SHA-256, hex: the same for every platform, and what the deps
+// branch's commit message names.
 function depsHash(source) {
   const inputs = ['VCPKG_COMMIT', 'vcpkg.json', ...listFiles(source, 'ports'), ...listFiles(source, 'triplets')].sort();
   const hash = crypto.createHash('sha256');
@@ -71,6 +73,17 @@ function depsHash(source) {
     hash.update(content);
   }
   return hash.digest('hex');
+}
+
+// The deps branch's commit message for prefixes built from hash, and the hash
+// back from one ("" if it names none).
+function depsMessage(hash, sourceCommit) {
+  return `deps ${hash}\n\nvcpkg-share ${sourceCommit}\n`;
+}
+
+function depsHashOf(message) {
+  const match = /^deps ([0-9a-f]{64})$/m.exec(message);
+  return match ? match[1] : '';
 }
 
 function vcpkgCommit(source) {
@@ -150,13 +163,13 @@ function build(source, { platforms = [], outDir } = {}) {
     }
     fs.rmSync(installRoot, { recursive: true, force: true });
     // What the prefix was built from, for whoever uses it to check.
-    fs.writeFileSync(path.join(prefix, 'vcpkg-share.json'), `${JSON.stringify({ platform: name, triplet, hash, vcpkgCommit: commit }, null, 2)}\n`);
+    fs.writeFileSync(path.join(prefix, 'vcpkg-share.json'), `${JSON.stringify({ platform: name, triplet, vcpkgCommit: commit }, null, 2)}\n`);
     console.log(`${name}: ${prefix}`);
   }
   return hash;
 }
 
-module.exports = { PLATFORMS, build, depsHash, hostPlatform };
+module.exports = { PLATFORMS, build, depsHash, depsHashOf, depsMessage, hostPlatform };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
@@ -176,7 +189,7 @@ if (require.main === module) {
   }
   try {
     const hash = build(source, options);
-    console.log(`== done: deps ${hash.slice(0, 12)}`);
+    console.log(`== done: deps ${hash}`);
   } catch (error) {
     console.error(error.message);
     process.exit(1);

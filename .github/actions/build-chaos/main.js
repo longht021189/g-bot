@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { fail, git, output, publish } = require('../_lib/actions.js');
-const { depsHash } = require('../build-vcpkg-share/build.js');
+const { depsHash, depsHashOf } = require('../build-vcpkg-share/build.js');
 const { build, hostTarget } = require('./build.js');
 const { workDir } = require('./work.js');
 
@@ -44,21 +44,23 @@ if (!fs.existsSync(cargoConfig)) {
 }
 
 // c-share's vcpkg dependencies, prebuilt for this platform by g-bot's
-// vcpkg-share workflow, on vcpkg-share's deps/<hash> branch for its main as
-// it is now: a change there not built yet fails here, rather than linking
-// older libraries. build() runs its tools with this process's environment,
-// where r-share's build.rs finds VCPKG_SHARE_PREFIX.
+// vcpkg-share workflow, on vcpkg-share's deps branch -- if built from
+// vcpkg-share's main as it is now (the deps hash its commit message names): a
+// change there not built yet fails here, rather than linking older libraries.
+// build() runs its tools with this process's environment, where r-share's
+// build.rs finds VCPKG_SHARE_PREFIX.
 if (!process.env.VCPKG_SHARE_PREFIX) {
+  const rerun = `run g-bot's vcpkg-share workflow with ${target}`;
   const vcpkgShare = path.join(workDir, 'vcpkg-share');
   git(['clone', '--quiet', '--depth', '1', vcpkgShareRepository, vcpkgShare]);
-  const branch = `deps/${depsHash(vcpkgShare).slice(0, 12)}`;
-  if (git(['ls-remote', '--heads', vcpkgShareRepository, branch]) === '') {
-    fail(`vcpkg-share has no ${branch}: run g-bot's vcpkg-share workflow with ${target}`);
-  }
+  const hash = depsHash(vcpkgShare);
+  if (git(['ls-remote', '--heads', vcpkgShareRepository, 'deps']) === '') fail(`vcpkg-share has no deps branch: ${rerun}`);
   const deps = path.join(workDir, 'deps');
-  git(['clone', '--quiet', '--depth', '1', '--filter=blob:none', '--sparse', '--branch', branch, vcpkgShareRepository, deps]);
+  git(['clone', '--quiet', '--depth', '1', '--filter=blob:none', '--sparse', '--branch', 'deps', vcpkgShareRepository, deps]);
+  const built = depsHashOf(git(['-C', deps, 'log', '-1', '--format=%B']));
+  if (built !== hash) fail(`vcpkg-share's deps is built from ${built || 'an unknown hash'}, its main is ${hash}: ${rerun}`);
   git(['-C', deps, 'sparse-checkout', 'set', target]);
-  if (!fs.existsSync(path.join(deps, target, 'lib'))) fail(`vcpkg-share's ${branch} has no ${target}: run g-bot's vcpkg-share workflow with it`);
+  if (!fs.existsSync(path.join(deps, target, 'lib'))) fail(`vcpkg-share's deps has no ${target}: ${rerun}`);
   process.env.VCPKG_SHARE_PREFIX = path.join(deps, target);
 }
 

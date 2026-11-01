@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { fail, git, output, publish } = require('../_lib/actions.js');
-const { build } = require('./build.js');
+const { build, depsHashOf, depsMessage } = require('./build.js');
 const { workDir } = require('./work.js');
 
 const source = process.env.BUILD_VCPKG_SHARE_SOURCE;
@@ -21,7 +21,10 @@ try {
   fail(error.message);
 }
 
-const branch = `deps/${hash.slice(0, 12)}`;
+// One branch, deps: the other platforms already there are kept only if they
+// were built from the same hash. (stalePrefix: the deps/<hash> branches this
+// replaced.)
+const branch = 'deps';
 const commit = publish({
   gitDir: git(['-C', sourceDir, 'rev-parse', '--absolute-git-dir']),
   filesDir,
@@ -29,9 +32,10 @@ const commit = publish({
   target: platform,
   branch,
   stalePrefix: 'deps/',
-  message: `deps ${hash} (vcpkg-share ${git(['-C', sourceDir, 'rev-parse', 'HEAD'])})`,
+  keep: (message) => depsHashOf(message) === hash,
+  message: depsMessage(hash, git(['-C', sourceDir, 'rev-parse', 'HEAD'])),
 });
 fs.rmSync(filesDir, { recursive: true, force: true });
 
-output('branch', branch);
+output('hash', hash);
 output('commit', commit);

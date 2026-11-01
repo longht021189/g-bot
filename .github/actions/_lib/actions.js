@@ -57,9 +57,11 @@ const maxFileSize = 100 * 1024 * 1024;
 // Adds filesDir/<target>/ to the branch of gitDir's origin (one orphan commit,
 // replacing what that branch had under <target>/ and keeping the rest, so one
 // job per platform can each add its own), and deletes every other branch whose
-// name starts with stalePrefix (e.g. "bin/"). Retries when another job pushed
-// in between. Uses its own index: gitDir's checkout is left as it is.
-function publish({ gitDir, filesDir, indexFile, target, branch, stalePrefix, message }) {
+// name starts with stalePrefix (e.g. "bin/"), if given. With keep, the rest is
+// kept only if keep(the branch's current commit message) says so; otherwise
+// the commit holds <target>/ alone. Retries when another job pushed in
+// between. Uses its own index: gitDir's checkout is left as it is.
+function publish({ gitDir, filesDir, indexFile, target, branch, stalePrefix, keep, message }) {
   for (const file of files(filesDir)) {
     const size = fs.statSync(file).size;
     if (size >= maxFileSize) fail(`${path.relative(filesDir, file)} is ${(size / 1024 / 1024).toFixed(2)} MiB, over GitHub's 100 MiB file limit`);
@@ -86,20 +88,33 @@ function publish({ gitDir, filesDir, indexFile, target, branch, stalePrefix, mes
       .filter(Boolean)
       .map((line) => line.split('\t'));
     const current = (heads.find(([, name]) => name === ref) || [''])[0];
-    stale = heads.map(([, name]) => name).filter((name) => name.startsWith(`refs/heads/${stalePrefix}`) && name !== ref);
+    stale = stalePrefix ? heads.map(([, name]) => name).filter((name) => name.startsWith(`refs/heads/${stalePrefix}`) && name !== ref) : [];
 
     fs.rmSync(indexFile, { force: true });
     if (current) {
       git(['fetch', '--quiet', '--depth', '1', 'origin', ref], { cwd: filesDir, env });
-      git(['read-tree', current], { cwd: filesDir, env });
-      git(['rm', '-r', '--cached', '--quiet', '--ignore-unmatch', '--', target], { cwd: filesDir, env });
+      if (!keep || keep(git(['log', '-1', '--format=%B', current], { cwd: filesDir, env }))) {
+        git(['read-tree', current], { cwd: filesDir, env });
+        git(['rm', '-r', '--cached', '--quiet', '--ignore-unmatch', '--', target], { cwd: filesDir, env });
+      }
     }
     git(['add', '--all', '--', target], { cwd: filesDir, env });
     const tree = git(['write-tree'], { cwd: filesDir, env });
     commit = git(['commit-tree', tree, '-m', message], { cwd: filesDir, env });
 
+    // A stale branch whose name is a directory of the branch's (deps/<hash>
+    // for deps) cannot exist beside it: those go first, on their own.
+    const blocking = stale.filter((name) => name.startsWith(`${ref}/`));
+    if (blocking.length > 0) {
+      const removed = tryGit(['push', '--quiet', 'origin', ...blocking.map((name) => `:${name}`)], { cwd: filesDir, env });
+      if (removed.status !== 0) {
+        process.stderr.write(removed.stderr);
+        fail(`cannot delete ${blocking.join(', ')}`);
+      }
+    }
+    const rest = stale.filter((name) => !blocking.includes(name));
     const push = tryGit(
-      ['push', '--quiet', '--atomic', `--force-with-lease=${ref}:${current}`, 'origin', `${commit}:${ref}`, ...stale.map((name) => `:${name}`)],
+      ['push', '--quiet', '--atomic', `--force-with-lease=${ref}:${current}`, 'origin', `${commit}:${ref}`, ...rest.map((name) => `:${name}`)],
       { cwd: filesDir, env },
     );
     if (push.status === 0) break;
@@ -107,7 +122,7 @@ function publish({ gitDir, filesDir, indexFile, target, branch, stalePrefix, mes
       process.stderr.write(push.stderr);
       fail(`cannot push ${branch}`);
     }
-    console.log(`${branch} or a stale ${stalePrefix}* branch changed while pushing, trying again`);
+    console.log(`${branch}${stalePrefix ? ` or a stale ${stalePrefix}* branch` : ''} changed while pushing, trying again`);
   }
 
   console.log(`Pushed ${target} to ${branch}`);

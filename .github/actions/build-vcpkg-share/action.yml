@@ -1,8 +1,8 @@
 name: build-vcpkg-share
-description: "Builds one platform's prefix of a vcpkg-share checkout (build.js, which also builds locally) and adds it to the repository's deps/<hash> branch. Settings come from the step's env."
+description: "Builds one platform's prefix of a vcpkg-share checkout (build.js, which also builds locally) and adds it to the repository's deps branch, whose commit message names the deps hash. Settings come from the step's env."
 outputs:
-  branch:
-    description: The branch pushed, deps/<first 12 characters of the deps hash>.
+  hash:
+    description: The deps hash the prefix was built from.
   commit:
     description: The commit on that branch.
 runs:

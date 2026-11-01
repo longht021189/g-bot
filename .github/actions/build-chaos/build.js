@@ -28,7 +28,8 @@
 //
 // Needs on PATH: go; cargo; make and a C compiler (zstd); tar; and what
 // r-share's build script needs for c-share (CMake, Ninja, clang for bindgen,
-// VCPKG_ROOT; see c-share's README). r-share and c-share are found next to the
+// and VCPKG_SHARE_PREFIX -- vcpkg-share's prebuilt dependencies -- or
+// VCPKG_ROOT; see r-share's README). r-share and c-share are found next to the
 // checkout (../r-share, ../c-share), as its .cargo/config.toml says.
 const { spawnSync } = require('child_process');
 const crypto = require('crypto');

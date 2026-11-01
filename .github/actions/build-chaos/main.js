@@ -1,56 +1,9 @@
-const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { fail, git, output, publish } = require('../_lib/actions.js');
+const { depsHash } = require('../build-vcpkg-share/build.js');
 const { build, hostTarget } = require('./build.js');
 const { workDir } = require('./work.js');
-
-function fail(message) {
-  console.log(`::error::${message}`);
-  process.exit(1);
-}
-
-function run(command, args, options = {}) {
-  const result = spawnSync(command, args, { stdio: ['ignore', 'inherit', 'inherit'], ...options });
-  if (result.error) {
-    fail(`cannot run ${command}: ${result.error.message}`);
-  }
-  if (result.status !== 0) {
-    fail(`${command} exited ${result.status}`);
-  }
-  return result;
-}
-
-function tryGit(args, options = {}) {
-  const result = spawnSync('git', args, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', ...options });
-  if (result.error) {
-    fail(`cannot run git: ${result.error.message}`);
-  }
-  return result;
-}
-
-function git(args, options = {}) {
-  const result = tryGit(args, options);
-  if (result.status !== 0) {
-    process.stderr.write(result.stderr);
-    fail(`git ${args[0] === '-C' ? args[2] : args[0]} exited ${result.status}`);
-  }
-  return result.stdout.trim();
-}
-
-function output(name, value) {
-  if (process.env.GITHUB_OUTPUT) {
-    fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
-  } else {
-    console.log(`${name}=${value}`);
-  }
-}
-
-function files(dir) {
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const file = path.join(dir, entry.name);
-    return entry.isDirectory() ? files(file) : [file];
-  });
-}
 
 const source = process.env.BUILD_CHAOS_SOURCE;
 if (!source) fail('BUILD_CHAOS_SOURCE is required');
@@ -67,7 +20,7 @@ const sharedRepositories = {
   'r-share': 'https://github.com/longht021189/r-share.git',
   'c-share': 'https://github.com/longht021189/c-share.git',
 };
-const maxFileSize = 100 * 1024 * 1024;
+const vcpkgShareRepository = 'https://github.com/longht021189/vcpkg-share.git';
 
 fs.rmSync(workDir, { recursive: true, force: true });
 const filesDir = path.join(workDir, 'files');
@@ -90,13 +43,23 @@ if (!fs.existsSync(cargoConfig)) {
   fs.writeFileSync(cargoConfig, '[patch."https://github.com/longht021189/r-share"]\nr-share = { path = "../r-share" }\n');
 }
 
-// build() runs its tools with this process's environment.
-if (target === 'linux-arm64') process.env.VCPKG_FORCE_SYSTEM_BINARIES = '1';
-if (!process.env.VCPKG_ROOT) {
-  const vcpkg = path.join(workDir, 'vcpkg');
-  git(['clone', '--quiet', '--depth', '1', 'https://github.com/microsoft/vcpkg.git', vcpkg]);
-  run(path.join(vcpkg, 'bootstrap-vcpkg.sh'), ['-disableMetrics']);
-  process.env.VCPKG_ROOT = vcpkg;
+// c-share's vcpkg dependencies, prebuilt for this platform by g-bot's
+// vcpkg-share workflow, on vcpkg-share's deps/<hash> branch for its main as
+// it is now: a change there not built yet fails here, rather than linking
+// older libraries. build() runs its tools with this process's environment,
+// where r-share's build.rs finds VCPKG_SHARE_PREFIX.
+if (!process.env.VCPKG_SHARE_PREFIX) {
+  const vcpkgShare = path.join(workDir, 'vcpkg-share');
+  git(['clone', '--quiet', '--depth', '1', vcpkgShareRepository, vcpkgShare]);
+  const branch = `deps/${depsHash(vcpkgShare).slice(0, 12)}`;
+  if (git(['ls-remote', '--heads', vcpkgShareRepository, branch]) === '') {
+    fail(`vcpkg-share has no ${branch}: run g-bot's vcpkg-share workflow with ${target}`);
+  }
+  const deps = path.join(workDir, 'deps');
+  git(['clone', '--quiet', '--depth', '1', '--filter=blob:none', '--sparse', '--branch', branch, vcpkgShareRepository, deps]);
+  git(['-C', deps, 'sparse-checkout', 'set', target]);
+  if (!fs.existsSync(path.join(deps, target, 'lib'))) fail(`vcpkg-share's ${branch} has no ${target}: run g-bot's vcpkg-share workflow with it`);
+  process.env.VCPKG_SHARE_PREFIX = path.join(deps, target);
 }
 
 async function main() {
@@ -105,68 +68,20 @@ async function main() {
   } catch (error) {
     fail(error.message);
   }
-  publish();
-}
-
-function publish() {
-  for (const file of files(filesDir)) {
-    const size = fs.statSync(file).size;
-    if (size >= maxFileSize) fail(`${path.relative(filesDir, file)} is ${(size / 1024 / 1024).toFixed(2)} MiB, over GitHub's 100 MiB file limit`);
-  }
 
   const sourceCommit = git(['-C', sourceDir, 'rev-parse', 'HEAD']);
   const branch = `bin/${sourceCommit.slice(0, 12)}`;
-  const ref = `refs/heads/${branch}`;
-  const gitDir = git(['-C', sourceDir, 'rev-parse', '--absolute-git-dir']);
-  const identity = { name: 'g-bot', email: 'g-bot@users.noreply.github.com' };
-  const indexFile = path.join(workDir, 'index');
-  const env = {
-    ...process.env,
-    GIT_DIR: gitDir,
-    GIT_WORK_TREE: filesDir,
-    GIT_INDEX_FILE: indexFile,
-    GIT_AUTHOR_NAME: identity.name,
-    GIT_AUTHOR_EMAIL: identity.email,
-    GIT_COMMITTER_NAME: identity.name,
-    GIT_COMMITTER_EMAIL: identity.email,
-  };
-
-  let commit = '';
-  let stale = [];
-  for (let attempt = 1; ; attempt++) {
-    const heads = git(['ls-remote', '--heads', 'origin'], { cwd: filesDir, env })
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => line.split('\t'));
-    const current = (heads.find(([, name]) => name === ref) || [''])[0];
-    stale = heads.map(([, name]) => name).filter((name) => name.startsWith('refs/heads/bin/') && name !== ref);
-
-    fs.rmSync(indexFile, { force: true });
-    if (current) {
-      git(['fetch', '--quiet', '--depth', '1', 'origin', ref], { cwd: filesDir, env });
-      git(['read-tree', current], { cwd: filesDir, env });
-      git(['rm', '-r', '--cached', '--quiet', '--ignore-unmatch', '--', target], { cwd: filesDir, env });
-    }
-    git(['add', '--all', '--', target], { cwd: filesDir, env });
-    const tree = git(['write-tree'], { cwd: filesDir, env });
-    commit = git(['commit-tree', tree, '-m', `chaos ${sourceCommit}`], { cwd: filesDir, env });
-
-    const push = tryGit(
-      ['push', '--quiet', '--atomic', `--force-with-lease=${ref}:${current}`, 'origin', `${commit}:${ref}`, ...stale.map((name) => `:${name}`)],
-      { cwd: filesDir, env },
-    );
-    if (push.status === 0) break;
-    if (attempt === 5) {
-      process.stderr.write(push.stderr);
-      fail(`cannot push ${branch}`);
-    }
-    console.log(`${branch} or a stale bin/* branch changed while pushing, trying again`);
-  }
-
+  const commit = publish({
+    gitDir: git(['-C', sourceDir, 'rev-parse', '--absolute-git-dir']),
+    filesDir,
+    indexFile: path.join(workDir, 'index'),
+    target,
+    branch,
+    stalePrefix: 'bin/',
+    message: `chaos ${sourceCommit}`,
+  });
   fs.rmSync(filesDir, { recursive: true, force: true });
 
-  console.log(`Pushed ${target} to ${branch}`);
-  if (stale.length > 0) console.log(`Deleted ${stale.map((name) => name.slice('refs/heads/'.length)).join(', ')}`);
   output('branch', branch);
   output('commit', commit);
 }

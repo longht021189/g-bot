@@ -2,6 +2,15 @@ name: Build Chaos
 
 on:
   workflow_dispatch:
+    inputs:
+      darwin-arm64:
+        description: darwin-arm64 (macOS, Apple Silicon)
+        type: boolean
+        default: true
+      linux-arm64:
+        description: linux-arm64
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -10,11 +19,26 @@ concurrency:
   group: chaos-bin
 
 jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - name: Plan the platforms
+        id: plan
+        uses: longht021189/g-bot/.github/actions/plan-platforms@main
+        env:
+          PLAN_PLATFORMS_FOR: chaos
+          PLAN_PLATFORMS: >-
+            ${{ inputs.darwin-arm64 && 'darwin-arm64' || '' }}
+            ${{ inputs.linux-arm64 && 'linux-arm64' || '' }}
+
   build:
+    needs: plan
+    name: build (${{ matrix.platform }})
     strategy:
       fail-fast: false
-      matrix:
-        runner: [ubuntu-24.04-arm, macos-latest]
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     environment: chaos
     steps:

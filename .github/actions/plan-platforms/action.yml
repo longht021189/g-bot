@@ -1,0 +1,8 @@
+name: plan-platforms
+description: "Turns the platforms chosen for a build (chaos's or vcpkg-share's) into a job matrix, each on its runner. Settings come from the step's env."
+outputs:
+  matrix:
+    description: 'The matrix, {"include": [{"platform": ..., "runner": ...}, ...]}.'
+runs:
+  using: node24
+  main: main.js

@@ -42,12 +42,18 @@ const IMAGE = 'localhost/chaos';
 const PULUMI_VERSION = '3.272.0';
 const ZSTD_VERSION = '1.5.7';
 const ZSTD_SHA256 = 'eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3';
-const TARGETS = { 'darwin/arm64': 'darwin-arm64', 'linux/arm64': 'linux-arm64' };
+// Every platform chaos is built for, each on that very OS and architecture;
+// runner is the GitHub-hosted runner g-bot's chaos workflow builds it on.
+const PLATFORMS = {
+  'darwin-arm64': { host: 'darwin/arm64', runner: 'macos-latest' },
+  'linux-arm64': { host: 'linux/arm64', runner: 'ubuntu-24.04-arm' },
+};
 
 function hostTarget() {
-  const target = TARGETS[`${process.platform}/${process.arch}`];
+  const host = `${process.platform}/${process.arch}`;
+  const target = Object.keys(PLATFORMS).find((name) => PLATFORMS[name].host === host);
   if (!target) {
-    throw new Error(`no build for ${process.platform}/${process.arch}: chaos is built for ${Object.values(TARGETS).join(' and ')}`);
+    throw new Error(`no build for ${host}: chaos is built for ${Object.keys(PLATFORMS).join(' and ')}`);
   }
   return target;
 }
@@ -218,7 +224,7 @@ async function build(source, { steps = [], outDir } = {}) {
   return { target, outDir };
 }
 
-module.exports = { build, hostTarget };
+module.exports = { PLATFORMS, build, hostTarget };
 
 if (require.main === module) {
   const args = process.argv.slice(2);

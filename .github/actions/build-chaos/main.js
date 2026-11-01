@@ -1,12 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 const { fail, git, output, publish } = require('../_lib/actions.js');
-const { depsHash, depsHashOf } = require('../build-vcpkg-share/build.js');
+const { depsHashOf } = require('../build-vcpkg-share/build.js');
 const { build, hostTarget } = require('./build.js');
 const { workDir } = require('./work.js');
 
 // Checkouts, relative to $GITHUB_WORKSPACE: chaos (with r-share and c-share
-// next to it), vcpkg-share's main and its deps branch.
+// next to it), and vcpkg-share's deps branch.
 const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
 function checkout(name) {
   const value = process.env[name];
@@ -14,7 +14,6 @@ function checkout(name) {
   return path.resolve(workspace, value);
 }
 const sourceDir = checkout('BUILD_CHAOS_SOURCE');
-const vcpkgShareDir = checkout('BUILD_CHAOS_VCPKG_SHARE');
 const depsDir = checkout('BUILD_CHAOS_DEPS');
 
 let target;
@@ -35,16 +34,11 @@ if (!fs.existsSync(cargoConfig)) {
 }
 
 // c-share's vcpkg dependencies, prebuilt for this platform by vcpkg-share's
-// deps workflow, on its deps branch -- if built from vcpkg-share's main as it
-// is now (the deps hash its commit message names): a change there not built
-// yet fails here, rather than linking older libraries. build() runs its tools
-// with this process's environment, where r-share's build.rs finds
+// deps workflow (on every push to its main), taken as they are. build() runs
+// its tools with this process's environment, where r-share's build.rs finds
 // VCPKG_SHARE_PREFIX.
-const rerun = `run vcpkg-share's deps workflow with ${target}`;
-const hash = depsHash(vcpkgShareDir);
-const built = depsHashOf(git(['-C', depsDir, 'log', '-1', '--format=%B']));
-if (built !== hash) fail(`vcpkg-share's deps is built from ${built || 'an unknown hash'}, its main is ${hash}: ${rerun}`);
-if (!fs.existsSync(path.join(depsDir, target, 'lib'))) fail(`vcpkg-share's deps has no ${target}: ${rerun}`);
+if (!fs.existsSync(path.join(depsDir, target, 'lib'))) fail(`vcpkg-share's deps has no ${target}: run vcpkg-share's deps workflow with it`);
+console.log(`vcpkg-share's deps ${depsHashOf(git(['-C', depsDir, 'log', '-1', '--format=%B'])) || '(no deps hash)'}`);
 process.env.VCPKG_SHARE_PREFIX = path.join(depsDir, target);
 
 fs.rmSync(workDir, { recursive: true, force: true });

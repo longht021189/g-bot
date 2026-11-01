@@ -1,5 +1,5 @@
 name: build-chaos
-description: "Builds every binary of a chaos checkout for the runner's own platform (scripts/build.sh) and adds them to the chaos repository's bin/<commit> branch. Settings come from the step's env."
+description: "Builds every binary of a chaos checkout for the runner's own platform (build.js, which also builds locally) and adds them to the chaos repository's bin/<commit> branch. Settings come from the step's env."
 outputs:
   branch:
     description: The branch pushed, bin/<first 12 characters of the source commit>.

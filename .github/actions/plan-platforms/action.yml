@@ -3,6 +3,8 @@ description: "Turns the platforms chosen for a build (chaos's or vcpkg-share's) 
 outputs:
   matrix:
     description: 'The matrix, {"include": [{"platform": ..., "runner": ...}, ...]}.'
+  count:
+    description: How many platforms it has; a job on an empty matrix fails, so skip it when 0.
 runs:
   using: node24
   main: main.js

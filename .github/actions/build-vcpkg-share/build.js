@@ -3,7 +3,7 @@
 // platform: <vcpkg-share>/dist/<platform>/{include,lib,share}, static
 // libraries only, for c-share's CMake (CMAKE_PREFIX_PATH) and r-share's
 // build.rs (VCPKG_SHARE_PREFIX) to use instead of running vcpkg themselves.
-// g-bot's vcpkg-share workflow pushes them to vcpkg-share's deps branch, whose
+// vcpkg-share's own deps workflow pushes them to its deps branch, whose
 // commit message names the deps hash they were built from (depsMessage).
 //
 // Platforms are named as chaos names its builds, not by vcpkg triplet:
@@ -24,7 +24,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-// runner is the GitHub-hosted runner g-bot's vcpkg-share workflow builds it on.
+// runner is the GitHub-hosted runner vcpkg-share's deps workflow builds it on.
 const PLATFORMS = {
   'darwin-arm64': { triplet: 'arm64-osx', host: 'darwin/arm64', runner: 'macos-latest' },
   'linux-arm64': { triplet: 'arm64-linux', host: 'linux/arm64', runner: 'ubuntu-24.04-arm' },

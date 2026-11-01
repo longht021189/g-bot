@@ -43,14 +43,14 @@ if (!fs.existsSync(cargoConfig)) {
   fs.writeFileSync(cargoConfig, '[patch."https://github.com/longht021189/r-share"]\nr-share = { path = "../r-share" }\n');
 }
 
-// c-share's vcpkg dependencies, prebuilt for this platform by g-bot's
-// vcpkg-share workflow, on vcpkg-share's deps branch -- if built from
+// c-share's vcpkg dependencies, prebuilt for this platform by vcpkg-share's
+// deps workflow, on its deps branch -- if built from
 // vcpkg-share's main as it is now (the deps hash its commit message names): a
 // change there not built yet fails here, rather than linking older libraries.
 // build() runs its tools with this process's environment, where r-share's
 // build.rs finds VCPKG_SHARE_PREFIX.
 if (!process.env.VCPKG_SHARE_PREFIX) {
-  const rerun = `run g-bot's vcpkg-share workflow with ${target}`;
+  const rerun = `run vcpkg-share's deps workflow with ${target}`;
   const vcpkgShare = path.join(workDir, 'vcpkg-share');
   git(['clone', '--quiet', '--depth', '1', vcpkgShareRepository, vcpkgShare]);
   const hash = depsHash(vcpkgShare);
